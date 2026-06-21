@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心靈感應術 - 撲克牌讀心</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        /* 自定義動畫 */
+        @keyframes fade-in {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 1s ease-out forwards;
+        }
+        .animate-fade-in-up {
+            animation: fade-in-up 0.8s ease-out forwards;
+        }
+        .fill-mode-backwards {
+            animation-fill-mode: backwards;
+        }
+        .animate-spin-slow {
+            animation: spin-slow 3s linear infinite;
+        }
+        
+        /* 隱藏滾動條但保留功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-white selection:bg-purple-500 overflow-x-hidden relative">
+
+    <!-- 背景裝飾 -->
+    <div class="fixed top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-purple-900/30 rounded-full blur-[100px] animate-pulse"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-900/20 rounded-full blur-[100px] animate-pulse" style="animation-delay: 1s;"></div>
+        <div class="absolute top-[40%] left-[40%] w-[20%] h-[20%] bg-amber-600/10 rounded-full blur-[80px]"></div>
+    </div>
+
+    <!-- 主要內容容器 -->
+    <main id="app" class="relative z-10 container mx-auto px-4 py-8 min-h-screen flex flex-col items-center justify-center">
+        <!-- 內容將由 JavaScript 動態渲染 -->
+    </main>
+
+    <script>
+        // --- 資料設定 ---
+        const SUIT_ICONS = {
+            hearts: '♥',
+            diamonds: '♦',
+            spades: '♠',
+            clubs: '♣',
+        };
+
+        // 全域變數儲存當前局的卡牌
+        let currentInitialCards = [];
+        let currentRevealCards = [];
+
+        // 隨機產生並洗牌的函數
+        function generateNewGameCards() {
+            // 輔助函數：洗牌
+            const shuffle = (arr) => {
+                for (let i = arr.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [arr[i], arr[j]] = [arr[j], arr[i]];
+                }
+                return arr;
+            };
+
+            let selectionPile = [];
+            let revealPool = [];
+            let idCounter = 1;
+
+            // 針對每個點數 (J, Q, K) 進行處理
+            ['J', 'Q', 'K'].forEach(rank => {
+                // 產生紅色的牌 (紅心, 方塊)
+                const reds = [
+                    { id: idCounter++, rank: rank, suit: 'hearts', color: 'red' },
+                    { id: idCounter++, rank: rank, suit: 'diamonds', color: 'red' }
+                ];
+                // 產生黑色的牌 (黑桃, 梅花)
+                const blacks = [
+                    { id: idCounter++, rank: rank, suit: 'spades', color: 'black' },
+                    { id: idCounter++, rank: rank, suit: 'clubs', color: 'black' }
+                ];
+
+                // 隨機打亂紅牌與黑牌
+                shuffle(reds);
+                shuffle(blacks);
+
+                // 取出一張紅牌和一張黑牌放入選牌區 (保證顏色平衡：3紅3黑)
+                selectionPile.push(reds[0]);
+                selectionPile.push(blacks[0]);
+
+                // 剩下的放入揭曉區
+                revealPool.push(reds[1]);
+                revealPool.push(blacks[1]);
+            });
+
+            // 最後再次洗亂這兩堆牌，讓順序不固定
+            currentInitialCards = shuffle(selectionPile);
+            currentRevealCards = shuffle(revealPool).slice(0, 5);
+        }
+
+        // --- 渲染輔助函數 ---
+
+        // 產生單張卡牌的 HTML
+        function getCardHTML(card, delayMs = 0) {
+            const textColor = card.color === 'red' ? 'text-red-600' : 'text-slate-900';
+            const icon = SUIT_ICONS[card.suit];
+            
+            return `
+                <div style="animation-delay: ${delayMs}ms" class="animate-fade-in-up fill-mode-backwards">
+                    <div class="relative w-24 h-36 md:w-32 md:h-48 bg-white rounded-xl shadow-2xl flex flex-col justify-between p-2 select-none transform hover:-translate-y-2 transition-transform duration-300 cursor-pointer">
+                        <div class="text-lg md:text-xl font-bold ${textColor}">
+                            <div class="leading-none">${card.rank}</div>
+                            <div class="leading-none text-xl md:text-2xl">${icon}</div>
+                        </div>
+                        
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-5xl md:text-6xl ${textColor}">
+                            ${icon}
+                        </div>
+
+                        <div class="text-lg md:text-xl font-bold ${textColor} rotate-180">
+                            <div class="leading-none">${card.rank}</div>
+                            <div class="leading-none text-xl md:text-2xl">${icon}</div>
+                        </div>
+                        
+                        <!-- 光澤效果 -->
+                        <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent rounded-xl pointer-events-none"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 應用程式邏輯 ---
+        
+        const appContainer = document.getElementById('app');
+        let intervalId = null;
+        let timeoutId = null;
+
+        // 1. 顯示歡迎畫面 (Intro)
+        function showIntro() {
+            resetTimers();
+            appContainer.innerHTML = `
+                <div class="text-center max-w-2xl animate-fade-in">
+                    <div class="mb-6 flex justify-center">
+                        <div class="relative">
+                            <i data-lucide="wand-2" class="w-16 h-16 text-amber-400 animate-bounce"></i>
+                            <i data-lucide="sparkles" class="w-8 h-8 text-purple-400 absolute -top-2 -right-4 animate-pulse"></i>
+                        </div>
+                    </div>
+                    <h1 class="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-amber-200 via-white to-purple-200 text-transparent bg-clip-text drop-shadow-lg">
+                        心靈感應術
+                    </h1>
+                    <p class="text-lg md:text-xl text-slate-300 mb-10 leading-relaxed">
+                        我能看透你的心思。<br/>
+                        你不相信嗎？讓我們來玩個遊戲。<br/>
+                        準備好了嗎？
+                    </p>
+                    <button onclick="showSelection()" class="group relative px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full text-xl font-bold shadow-lg hover:shadow-purple-500/50 hover:scale-105 transition-all duration-300 overflow-hidden inline-block">
+                        <span class="relative z-10 flex items-center gap-2">
+                            開始挑戰 <i data-lucide="play" class="w-5 h-5 fill-current"></i>
+                        </span>
+                        <div class="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    </button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // 2. 顯示選牌畫面 (Selection)
+        function showSelection() {
+            // 每次進入選牌畫面時，重新產生一組隨機卡牌
+            generateNewGameCards();
+
+            const cardsHTML = currentInitialCards.map((card, idx) => getCardHTML(card, idx * 100)).join('');
+
+            appContainer.innerHTML = `
+                <div class="text-center w-full max-w-5xl animate-fade-in-up">
+                    <h2 class="text-2xl md:text-4xl font-bold mb-4 text-amber-100">
+                        從下方選一張牌，並牢牢記住它
+                    </h2>
+                    <p class="text-slate-400 mb-8 text-lg">
+                        不要點擊，只要在心裡默想那張牌。<br/>
+                        盯著它看 5 秒鐘，將它刻在你的腦海裡。
+                    </p>
+                    
+                    <div class="grid grid-cols-3 md:grid-cols-6 gap-4 mb-12 justify-items-center">
+                        ${cardsHTML}
+                    </div>
+
+                    <button onclick="showReading()" class="px-10 py-4 bg-slate-800 border border-slate-600 hover:bg-slate-700 hover:border-amber-400/50 rounded-full text-xl font-semibold transition-all hover:shadow-lg hover:shadow-amber-900/20 active:scale-95 flex items-center gap-3 mx-auto">
+                        <i data-lucide="eye" class="text-amber-400 w-6 h-6"></i>
+                        我記住了
+                    </button>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // 3. 顯示讀心動畫 (Reading)
+        function showReading() {
+            const texts = [
+                '正在讀取你的腦波...',
+                '正在與你的潛意識建立連結...',
+                '感應到了...',
+                '鎖定你心中的那張牌！'
+            ];
+            
+            // 先渲染基本結構
+            appContainer.innerHTML = `
+                <div class="text-center flex flex-col items-center justify-center animate-pulse">
+                    <div class="relative mb-8">
+                        <div class="w-32 h-32 md:w-48 md:h-48 rounded-full bg-purple-600/20 animate-ping absolute inset-0"></div>
+                        <div class="w-32 h-32 md:w-48 md:h-48 rounded-full border-4 border-purple-500/30 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm relative z-10 shadow-[0_0_50px_rgba(168,85,247,0.4)]">
+                            <i data-lucide="eye" class="text-purple-400 w-16 h-16 animate-pulse"></i>
+                        </div>
+                    </div>
+                    <h3 id="loading-text" class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-pink-300 mb-2">
+                        ${texts[0]}
+                    </h3>
+                    <p class="text-slate-500">請保持專注...</p>
+                </div>
+            `;
+            lucide.createIcons();
+
+            // 啟動文字輪播邏輯
+            let index = 0;
+            const textElement = document.getElementById('loading-text');
+            
+            intervalId = setInterval(() => {
+                index = (index + 1) % texts.length;
+                if(textElement) textElement.innerText = texts[index];
+            }, 800);
+
+            // 3.5秒後跳轉到結果頁
+            timeoutId = setTimeout(() => {
+                showReveal();
+            }, 3500);
+        }
+
+        // 4. 顯示結果 (Reveal)
+        function showReveal() {
+            resetTimers(); // 清除動畫的計時器
+            
+            const cardsHTML = currentRevealCards.map((card, idx) => getCardHTML(card, idx * 100)).join('');
+
+            appContainer.innerHTML = `
+                <div class="text-center w-full max-w-5xl animate-fade-in-up">
+                    <div class="mb-6">
+                        <div class="flex justify-center mb-4">
+                            <i data-lucide="sparkles" class="text-amber-400 w-12 h-12 animate-spin-slow"></i>
+                        </div>
+                        <h2 class="text-3xl md:text-5xl font-bold mb-4 text-white">
+                            你的心思... <span class="text-red-500">已被我看透</span>
+                        </h2>
+                        <p class="text-slate-300 text-lg mb-8 leading-relaxed">
+                            就在剛才連結你潛意識的瞬間，我把你選的那張牌... 變不見了。<br>
+                            仔細看看，它是否已經消失了？
+                        </p>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 md:grid-cols-5 gap-4 mb-12 justify-items-center justify-center max-w-4xl mx-auto">
+                        ${cardsHTML}
+                    </div>
+
+                    <div class="flex flex-col md:flex-row gap-4 justify-center">
+                        <button onclick="showIntro()" class="px-8 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full text-lg font-bold shadow-lg hover:shadow-emerald-500/30 hover:-translate-y-1 transition-all flex items-center justify-center gap-2">
+                            <i data-lucide="refresh-cw" class="w-5 h-5"></i>
+                            再玩一次
+                        </button>
+                    </div>
+                    
+                    <div class="mt-12 p-4 bg-white/5 rounded-lg max-w-md mx-auto backdrop-blur-sm border border-white/10">
+                        <p class="text-xs text-slate-500">
+                            純屬娛樂，請勿過度迷信魔法（雖然這真的很像魔法）。
+                        </p>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        // 清除計時器的輔助函數
+        function resetTimers() {
+            if (intervalId) clearInterval(intervalId);
+            if (timeoutId) clearTimeout(timeoutId);
+            intervalId = null;
+            timeoutId = null;
+        }
+
+        // 啟動應用
+        showIntro();
+
+    </script>
+</body>
+</html>

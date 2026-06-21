@@ -1,0 +1,16 @@
+initial_admin_username      = "admin"
+initial_admin_email         = "admin@example.com"
+initial_admin_temp_password = "ReplaceWithStrongTemporaryPassword1"
+
+# Optional second Cognito admin. Leave all three blank to skip creating it.
+second_admin_username      = "admin2"
+second_admin_email         = "admin2@example.com"
+second_admin_temp_password = "ReplaceWithAnotherStrongTemporaryPassword1"
+
+# Optional deployment overrides:
+# aws_region            = "ap-northeast-1"
+# app_domain_name       = "app.example.com"
+# admin_domain_name     = "admin.example.com"
+# route53_zone_name     = "example.com"
+protect_identity_data     = true
+monthly_budget_limit_usd = "50"

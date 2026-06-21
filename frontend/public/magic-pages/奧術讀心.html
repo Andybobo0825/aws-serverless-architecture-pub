@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奧術讀心 - Mind Reader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* 引入魔法風格字體 Cinzel 和繁體中文 Noto Serif */
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Serif+TC:wght@300;600&display=swap');
+
+        :root {
+            --primary-glow: #fbbf24;
+            --secondary-glow: #8b5cf6;
+            --glass-bg: rgba(15, 23, 42, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Noto Serif TC', serif;
+            background-color: #020617;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            overscroll-behavior-y: none;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 背景星塵動畫 */
+        .stars-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: radial-gradient(circle at 50% 120%, #1e1b4b 0%, #020617 60%, #000000 100%);
+            overflow: hidden;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: twinkle var(--duration) ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.5); box-shadow: 0 0 4px white; }
+        }
+
+        /* 標題字體 */
+        h1, h2, .font-cinzel {
+            font-family: 'Cinzel', 'Noto Serif TC', serif;
+        }
+
+        /* 魔幻玻璃卡片 */
+        .magic-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            box-shadow: 
+                0 0 0 1px rgba(0,0,0,0.2), 
+                0 20px 50px -10px rgba(0, 0, 0, 0.7),
+                inset 0 0 20px rgba(255,255,255,0.02);
+            backdrop-filter: blur(16px);
+            border-radius: 1.5rem;
+            transform-style: preserve-3d;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 卡片頂部光暈 */
+        .magic-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary-glow), transparent);
+            opacity: 0.5;
+        }
+
+        /* 數字網格 */
+        .number-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+        }
+
+        @media (min-width: 640px) {
+            .number-grid {
+                grid-template-columns: repeat(6, 1fr);
+                gap: 1rem;
+            }
+        }
+
+        /* 數字單元格 */
+        .number-cell {
+            font-family: 'Cinzel', 'Noto Serif TC', serif;
+            text-align: center;
+            padding: 0.6rem 0.2rem;
+            border-radius: 0.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fbbf24;
+            font-weight: 700;
+            font-size: 1.1rem;
+            border: 1px solid rgba(251, 191, 36, 0.1);
+            transition: all 0.3s ease;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 數字格微光效果 */
+        .number-cell::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(251,191,36,0.1) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .number-cell:hover::after {
+            opacity: 1;
+        }
+
+        /* 高級按鈕樣式 */
+        .btn-magic {
+            background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+            color: white;
+            border: 1px solid #f59e0b;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-magic:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.5), inset 0 1px 0 rgba(255,255,255,0.3);
+            filter: brightness(1.1);
+        }
+
+        .btn-magic::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: 0.5s;
+        }
+        
+        .btn-magic:hover::after {
+            left: 100%;
+        }
+
+        .btn-secondary {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            color: #94a3b8;
+            backdrop-filter: blur(4px);
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(30, 41, 59, 0.6);
+            color: #f1f5f9;
+            border-color: #64748b;
+            box-shadow: 0 0 15px rgba(148, 163, 184, 0.1);
+        }
+
+        .btn-back {
+            color: #64748b;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid transparent;
+        }
+        
+        .btn-back:hover {
+            color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            border-color: rgba(251, 191, 36, 0.2);
+            transform: translateX(-3px);
+        }
+
+        /* 讀取動畫 */
+        .mystic-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1px solid transparent;
+            border-top-color: var(--primary-glow);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.2);
+            animation: spin var(--duration) cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        
+        .mystic-ring:nth-child(1) { height: 120px; width: 120px; --duration: 3s; border-top-color: #fbbf24; opacity: 0.8; }
+        .mystic-ring:nth-child(2) { height: 90px; width: 90px; --duration: 2s; border-top-color: #d97706; opacity: 0.6; }
+        .mystic-ring:nth-child(3) { height: 60px; width: 60px; --duration: 4s; border-top-color: #f59e0b; opacity: 0.4; }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 進度點 */
+        .dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            background: #334155;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .dot.active {
+            background: #fbbf24;
+            box-shadow: 0 0 10px #fbbf24, 0 0 5px #f59e0b;
+            transform: scale(1.2);
+        }
+
+        /* 動畫類別 */
+        .fade-enter {
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+            filter: blur(5px);
+        }
+        .fade-enter-active {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            filter: blur(0);
+        }
+        
+        .sparkle {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            pointer-events: none;
+            box-shadow: 0 0 5px #fff, 0 0 10px #fbbf24;
+            animation: float-sparkle 0.8s ease-out forwards;
+            z-index: 50;
+        }
+
+        @keyframes float-sparkle {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+            50% { opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <!-- 背景特效 -->
+    <div class="stars-bg" id="stars-container"></div>
+
+    <div id="app" class="w-full max-w-xl relative">
+        
+        <!-- Header -->
+        <div class="text-center mb-10 relative z-10">
+            <h1 class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-amber-100 to-amber-500 mb-2 tracking-[0.15em] uppercase font-cinzel drop-shadow-lg">
+                奧術讀心
+            </h1>
+            <div class="h-px w-32 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent mx-auto mt-4"></div>
+        </div>
+
+        <!-- Stage 1: Intro -->
+        <div id="intro-screen" class="magic-card p-10 rounded-2xl text-center">
+            <div class="space-y-10">
+                <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+                    <div class="absolute inset-0 bg-amber-500/20 rounded-full blur-xl animate-pulse"></div>
+                    <i class="fa-solid fa-eye text-5xl text-amber-400 relative z-10 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]"></i>
+                </div>
+                
+                <div class="space-y-4">
+                    <h2 class="text-2xl text-amber-100 font-cinzel tracking-wider">心靈連結</h2>
+                    <p class="text-lg leading-relaxed text-slate-300 font-light">
+                        請在心中默想一個 <br>
+                        <span class="text-amber-400 font-bold text-2xl font-cinzel mx-1">1 ~ 63</span> <br>
+                        之間的數字
+                    </p>
+                </div>
+                
+                <button onclick="startGame()" class="btn-magic px-12 py-4 rounded-xl text-lg tracking-[0.2em] font-bold w-full md:w-auto uppercase font-cinzel">
+                    開啟儀式
+                </button>
+            </div>
+        </div>
+
+        <!-- Stage 2: The Game Cards -->
+        <div id="game-screen" class="hidden magic-card p-6 md:p-8 rounded-2xl relative">
+            <!-- Top Controls -->
+            <div class="flex justify-between items-center mb-6">
+                 <button onclick="goBack()" class="btn-back" title="回上一頁">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </button>
+                
+                <div class="flex gap-2" id="progress-dots">
+                    <!-- Dots injected by JS -->
+                </div>
+                
+                <!-- Spacer to balance the back button visually -->
+                <div class="w-[40px]"></div>
+            </div>
+
+            <div class="text-center mb-8">
+                <p class="text-slate-200 text-lg font-cinzel tracking-wide">你的數字在這些符文中嗎？</p>
+            </div>
+
+            <!-- Numbers Container -->
+            <div id="numbers-container" class="number-grid mb-10 min-h-[220px]">
+                <!-- Numbers injected by JS -->
+            </div>
+
+            <!-- Controls -->
+            <div class="flex gap-6 justify-center">
+                <button onclick="answer(false)" class="btn-secondary flex-1 py-4 px-6 rounded-xl font-bold text-lg font-cinzel tracking-wider group">
+                    <span class="group-hover:text-white transition-colors">沒有</span>
+                </button>
+                <button onclick="answer(true)" class="btn-magic flex-1 py-4 px-6 rounded-xl font-bold text-lg font-cinzel tracking-wider">
+                    有
+                </button>
+            </div>
+        </div>
+
+        <!-- Stage 3: Visual Loading -->
+        <div id="loading-screen" class="hidden h-80 flex flex-col items-center justify-center relative">
+            <div class="relative w-40 h-40 flex items-center justify-center mb-8">
+                <div class="mystic-ring"></div>
+                <div class="mystic-ring"></div>
+                <div class="mystic-ring"></div>
+                <div class="absolute text-amber-400 text-2xl animate-pulse drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]">
+                    <i class="fa-solid fa-infinity"></i>
+                </div>
+            </div>
+            <p class="text-amber-500/70 font-cinzel tracking-[0.3em] text-sm animate-pulse">正在解讀命運...</p>
+        </div>
+
+        <!-- Stage 4: Result -->
+        <div id="result-screen" class="hidden magic-card p-12 rounded-2xl text-center relative overflow-hidden">
+            <!-- Background Glow FX -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-amber-500/10 rounded-full blur-[80px]"></div>
+            
+            <h3 class="text-slate-400 font-cinzel tracking-widest text-sm mb-8 uppercase relative z-10">命運的指引</h3>
+
+            <div class="relative z-10 mb-10 min-h-[120px] flex items-center justify-center">
+                <div class="text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-amber-100 via-amber-400 to-amber-700 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] scale-0 font-cinzel" id="final-number">
+                    0
+                </div>
+            </div>
+
+            <div class="relative z-20">
+                <button onclick="resetGame()" class="btn-magic px-10 py-3 rounded-full text-lg font-bold tracking-wider hover:scale-105 transform transition-transform font-cinzel flex items-center justify-center mx-auto gap-2">
+                    <i class="fa-solid fa-rotate-right text-sm"></i> 
+                    <span>再玩一次</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Visual Effects Setup ---
+        function initStars() {
+            const container = document.getElementById('stars-container');
+            const starCount = 50;
+            
+            for(let i=0; i<starCount; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                const x = Math.random() * 100;
+                const y = Math.random() * 100;
+                const size = Math.random() * 2 + 1;
+                const duration = Math.random() * 3 + 2;
+                
+                star.style.left = `${x}%`;
+                star.style.top = `${y}%`;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.setProperty('--duration', `${duration}s`);
+                
+                container.appendChild(star);
+            }
+        }
+        initStars();
+
+        // --- Game Logic (Identical to previous logic) ---
+        let currentStep = 0;
+        const totalCards = 6;
+        let cardOrder = []; 
+        let userAnswers = [];
+        
+        const screens = {
+            intro: document.getElementById('intro-screen'),
+            game: document.getElementById('game-screen'),
+            loading: document.getElementById('loading-screen'),
+            result: document.getElementById('result-screen')
+        };
+        const numbersContainer = document.getElementById('numbers-container');
+        const progressDotsContainer = document.getElementById('progress-dots');
+        const finalNumberDisplay = document.getElementById('final-number');
+
+        function getNumbersForCard(cardIndex) {
+            let numbers = [];
+            let bitValue = Math.pow(2, cardIndex);
+            for (let i = 1; i <= 63; i++) {
+                if ((i & bitValue) !== 0) numbers.push(i);
+            }
+            return numbers; // Sorted
+        }
+
+        function switchScreen(screenName) {
+            Object.values(screens).forEach(el => {
+                el.classList.add('hidden');
+                el.classList.remove('fade-enter-active');
+            });
+            const target = screens[screenName];
+            target.classList.remove('hidden');
+            void target.offsetWidth; 
+            target.classList.add('fade-enter');
+            setTimeout(() => target.classList.add('fade-enter-active'), 50);
+        }
+
+        function startGame() {
+            currentStep = 0;
+            userAnswers = new Array(totalCards).fill(null);
+            cardOrder = [0, 1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
+            updateProgress();
+            renderCard(currentStep);
+            switchScreen('game');
+        }
+
+        function updateProgress() {
+            progressDotsContainer.innerHTML = '';
+            for(let i=0; i<totalCards; i++) {
+                const dot = document.createElement('div');
+                dot.className = `dot ${i === currentStep ? 'active' : ''}`;
+                // Keep completed dots slightly lit
+                if (i < currentStep) dot.style.background = '#64748b';
+                progressDotsContainer.appendChild(dot);
+            }
+        }
+
+        function renderCard(stepIndex) {
+            const realCardIndex = cardOrder[stepIndex];
+            const numbers = getNumbersForCard(realCardIndex);
+            
+            numbersContainer.innerHTML = '';
+            numbers.forEach((num, i) => {
+                const div = document.createElement('div');
+                div.className = 'number-cell opacity-0';
+                div.innerText = num;
+                // Elegant staggered animation
+                div.style.animation = `fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards ${i * 0.02}s`;
+                numbersContainer.appendChild(div);
+            });
+            updateProgress();
+        }
+
+        function answer(isYes) {
+            createSparkles(event);
+            userAnswers[currentStep] = isYes;
+            currentStep++;
+
+            if (currentStep < totalCards) {
+                transitionToNextCard();
+            } else {
+                showResult();
+            }
+        }
+
+        function goBack() {
+            if (currentStep > 0) {
+                currentStep--;
+                transitionToNextCard();
+            } else {
+                switchScreen('intro');
+            }
+        }
+
+        function transitionToNextCard() {
+            const gameScreen = screens.game;
+            gameScreen.style.transition = 'opacity 0.2s, transform 0.2s';
+            gameScreen.style.opacity = '0';
+            gameScreen.style.transform = 'scale(0.97) translateY(10px)';
+            
+            setTimeout(() => {
+                renderCard(currentStep);
+                gameScreen.style.opacity = '1';
+                gameScreen.style.transform = 'scale(1) translateY(0)';
+            }, 250);
+        }
+
+        function showResult() {
+            switchScreen('loading');
+            let finalSum = 0;
+            for(let i=0; i<totalCards; i++) {
+                if (userAnswers[i]) {
+                    finalSum += Math.pow(2, cardOrder[i]);
+                }
+            }
+
+            setTimeout(() => {
+                switchScreen('result');
+                finalNumberDisplay.innerText = finalSum;
+                finalNumberDisplay.style.transition = 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                
+                setTimeout(() => {
+                    finalNumberDisplay.classList.remove('scale-0');
+                    finalNumberDisplay.classList.add('scale-100');
+                    createBigExplosion();
+                }, 100);
+            }, 3000); 
+        }
+
+        function resetGame() {
+            finalNumberDisplay.classList.remove('scale-100');
+            finalNumberDisplay.classList.add('scale-0');
+            switchScreen('intro');
+        }
+
+        function createSparkles(e) {
+            let x, y;
+            if (e && e.clientX) {
+                x = e.clientX;
+                y = e.clientY;
+            } else {
+                const rect = document.body.getBoundingClientRect();
+                x = rect.width / 2;
+                y = rect.height / 2;
+            }
+
+            for(let i=0; i<12; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'sparkle';
+                spark.style.left = x + 'px';
+                spark.style.top = y + 'px';
+                
+                const size = Math.random() * 4 + 2;
+                spark.style.width = size + 'px';
+                spark.style.height = size + 'px';
+                
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 40 + Math.random() * 40;
+                
+                spark.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+                spark.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+                
+                document.body.appendChild(spark);
+                setTimeout(() => spark.remove(), 800);
+            }
+        }
+        
+        function createBigExplosion() {
+            const rect = finalNumberDisplay.getBoundingClientRect();
+            const x = rect.left + rect.width/2;
+            const y = rect.top + rect.height/2;
+            
+            // Re-use createSparkles logic but more intense
+            for(let i=0; i<30; i++) {
+                setTimeout(() => {
+                    const spark = document.createElement('div');
+                    spark.className = 'sparkle';
+                    spark.style.left = x + 'px';
+                    spark.style.top = y + 'px';
+                    spark.style.background = i % 2 === 0 ? '#fbbf24' : '#fff';
+                    
+                    const size = Math.random() * 6 + 2;
+                    spark.style.width = size + 'px';
+                    spark.style.height = size + 'px';
+                    
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 100 + Math.random() * 100;
+                    
+                    spark.style.setProperty('--tx', Math.cos(angle) * distance + 'px');
+                    spark.style.setProperty('--ty', Math.sin(angle) * distance + 'px');
+                    
+                    document.body.appendChild(spark);
+                    setTimeout(() => spark.remove(), 1000);
+                }, i * 10);
+            }
+        }
+
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: scale(0.9); }
+                to { opacity: 1; transform: scale(1); }
+            }
+        `;
+        document.head.appendChild(styleSheet);
+    </script>
+</body>
+</html>

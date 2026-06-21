@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>禮物靈感</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* --- iOS 系統變數定義 (Light/Dark Mode) --- */
+        :root {
+            /* Light Mode (預設) */
+            --bg-color: #FFFFFF;
+            --text-primary: #000000;
+            --text-secondary: #8E8E93;
+            --accent-color: #E0B115; /* 經典備忘錄黃 */
+            --bar-bg: #F9F9F9;
+            --border-color: #E5E5EA;
+            --checkbox-border: #C7C7CC;
+            --checkbox-check: #FFFFFF;
+            --input-placeholder: #C7C7CC;
+            --edit-bg: #F2F2F7;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                /* Dark Mode */
+                --bg-color: #000000;
+                --text-primary: #FFFFFF;
+                --text-secondary: #98989D;
+                --accent-color: #FFD60A; /* 深色模式下的黃色較亮 */
+                --bar-bg: #1C1C1E;
+                --border-color: #38383A;
+                --checkbox-border: #545458;
+                --checkbox-check: #000000;
+                --input-placeholder: #545458;
+                --edit-bg: #1C1C1E;
+            }
+        }
+
+        /* 基礎設定 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s, color 0.3s;
+            overflow: hidden;
+        }
+
+        /* 隱藏滾動條 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* iOS Notes 風格 Checkbox */
+        .note-checkbox {
+            appearance: none;
+            background-color: transparent;
+            margin: 0;
+            width: 22px;
+            height: 22px;
+            border: 1.5px solid var(--checkbox-border);
+            border-radius: 50%;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        /* 勾選圖示 */
+        .note-checkbox::before {
+            content: "";
+            width: 14px;
+            height: 14px;
+            background-color: var(--checkbox-check);
+            mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") no-repeat center;
+            -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z'/%3E%3C/svg%3E") no-repeat center;
+            transform: scale(0);
+            transition: 0.15s transform ease-in-out;
+        }
+
+        .note-checkbox:checked {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .note-checkbox:checked::before {
+            transform: scale(1);
+        }
+
+        /* 選中項目的文字樣式 */
+        .item-text-checked {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        /* 列表淡入動畫 */
+        .fade-in {
+            animation: fadeIn 0.25s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 點擊複製按鈕時的動畫 */
+        .icon-clicked {
+            opacity: 0.3 !important;
+            transform: scale(0.9);
+            transition: all 0.1s;
+        }
+
+        /* 編輯模式下的 Input */
+        .edit-input {
+            width: 100%;
+            background: var(--edit-bg);
+            color: var(--text-primary);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 17px;
+            outline: none;
+            margin-bottom: 4px;
+        }
+        .edit-input:focus {
+            box-shadow: 0 0 0 2px var(--accent-color);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <!-- 1. 頂部導航欄 -->
+    <header class="sticky top-0 z-30 pt-[env(safe-area-inset-top)] border-b transition-colors duration-300" style="background-color: var(--bg-color); border-color: var(--bg-color);">
+        <div class="px-4 h-[44px] flex justify-between items-center relative">
+            
+            <!-- 左上：返回 / 重置 / 編輯模式下的重置預設 -->
+            <div id="nav-left-btn" class="flex items-center text-[17px] cursor-pointer active:opacity-50" style="color: var(--accent-color);" onclick="handleLeftNavClick()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 -ml-2" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                </svg>
+                <span class="font-normal -ml-1" id="nav-left-text">備忘錄</span>
+            </div>
+            
+            <!-- 右上：更多 / 完成 -->
+            <div id="action-btn" class="cursor-pointer active:opacity-50 p-2 rounded-full hover:bg-gray-100/10" style="color: var(--accent-color);" onclick="handleActionClick()">
+                <!-- 預設顯示 ... icon -->
+                <svg id="icon-more" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <!-- 編輯模式顯示 "完成" 文字 -->
+                <span id="text-done" class="hidden font-semibold text-[17px]">完成</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 2. 內容區域 -->
+    <main id="list-container" class="flex-1 overflow-y-auto no-scrollbar px-5 pt-2 pb-24" style="background-color: var(--bg-color);">
+        <div class="mb-5">
+            <!-- 加入雙擊事件以進入編輯模式 -->
+            <h1 id="page-title" class="text-[32px] font-bold leading-tight mb-1 tracking-tight select-none cursor-text" 
+                style="color: var(--text-primary);" 
+                ondblclick="enterEditMode()">
+                禮物靈感
+            </h1>
+            <p class="text-[14px] text-center w-full" style="color: var(--text-secondary);">2024年10月24日 下午3:42</p>
+        </div>
+
+        <div id="item-list" class="space-y-0">
+            <!-- JS 生成內容 -->
+        </div>
+
+        <!-- Peek 區域 (現在只會顯示 "輸入..."，不會再顯示答案) -->
+        <div class="mt-4 flex items-center opacity-0 transition-opacity duration-500" id="peek-line">
+            <div class="note-checkbox mr-3" style="border-style: dashed; border-color: var(--text-secondary);"></div>
+            <span class="text-[17px]" style="color: var(--text-secondary);" id="peek-text">輸入...</span>
+        </div>
+    </main>
+
+    <!-- 3. 底部工具列 -->
+    <footer class="border-t px-5 h-[80px] fixed bottom-0 w-full z-40 pb-[env(safe-area-inset-bottom)] flex items-start pt-3 justify-between transition-colors duration-300" 
+            style="background-color: var(--bar-bg); border-color: var(--border-color); color: var(--accent-color);">
+        <div class="p-2 -ml-2 opacity-80">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.3">
+                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7-9h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
+            </svg>
+        </div>
+        <span class="font-serif text-[15px] pt-1 opacity-40 translate-y-0.5">Aa</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 opacity-40 translate-y-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
+        
+        <!-- 右下：新增筆記 (綁定複製) -->
+        <div id="compose-btn" class="p-2 -mr-2 cursor-pointer transition-opacity" onclick="handleComposeClick()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+        </div>
+    </footer>
+
+    <script>
+        // --- 預設資料庫 (30個物品) ---
+        const defaultItems = [
+            "placeholder_0", 
+            "iPhone 16", "AirPods Pro", "iPad Air", "Apple Watch", "PS5 Pro", 
+            "Switch OLED", "Dyson 吹風機", "掃地機器人", "機械鍵盤", "Marshall 喇叭", 
+            "拍立得相機", "投影機", "GoPro", "無人機", "Kindle", 
+            "智慧手環", "Jo Malone 香水", "YSL 口紅", "SK-II 青春露", "L'OCCITANE 護手霜", 
+            "香氛蠟燭", "精油擴香", "LED 化妝鏡", "按摩槍", "泡腳機", 
+            "電動牙刷", "刮鬍刀", "名牌皮夾", "現金紅包", "東京機票"
+        ];
+
+        // --- 狀態變數 ---
+        let currentItems = []; // 實際使用的列表
+        let currentPhase = 0; 
+        let magicNumber = 0;  
+        let isEditingMode = false;
+        const totalBits = 5;  
+
+        // DOM 元素
+        const itemListEl = document.getElementById('item-list');
+        const peekLineEl = document.getElementById('peek-line');
+        const peekTextEl = document.getElementById('peek-text');
+        const composeBtn = document.getElementById('compose-btn');
+        const actionBtn = document.getElementById('action-btn');
+        const iconMore = document.getElementById('icon-more');
+        const textDone = document.getElementById('text-done');
+        const navLeftText = document.getElementById('nav-left-text');
+
+        window.onload = () => {
+            loadItems();
+            renderList();
+            updateDate();
+        };
+
+        // --- 資料存取 ---
+        function loadItems() {
+            const saved = localStorage.getItem('magic_gift_items');
+            if (saved) {
+                try {
+                    currentItems = JSON.parse(saved);
+                    // 確保長度正確 (防呆)
+                    if (currentItems.length !== 31) currentItems = [...defaultItems];
+                } catch(e) {
+                    currentItems = [...defaultItems];
+                }
+            } else {
+                currentItems = [...defaultItems];
+            }
+        }
+
+        function saveItems() {
+            // 在編輯模式下收集所有 input 的值
+            const inputs = document.querySelectorAll('.edit-input');
+            if (inputs.length === 30) {
+                const newItems = ["placeholder_0"];
+                inputs.forEach(input => {
+                    newItems.push(input.value.trim() || "未命名");
+                });
+                currentItems = newItems;
+                localStorage.setItem('magic_gift_items', JSON.stringify(currentItems));
+            }
+        }
+
+        function resetToDefaults() {
+            if(confirm("確定要恢復預設的 30 個禮物嗎？")) {
+                currentItems = [...defaultItems];
+                localStorage.removeItem('magic_gift_items');
+                renderList();
+            }
+        }
+
+        function updateDate() {
+            const now = new Date();
+            const dateStr = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+            let hours = now.getHours();
+            const ampm = hours >= 12 ? '下午' : '上午';
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.querySelector('p').innerText = `${dateStr} ${ampm}${hours}:${minutes}`;
+        }
+
+        // --- 編輯模式邏輯 ---
+        function enterEditMode() {
+            if (currentPhase !== 0) return; // 只有在閒置狀態才能編輯
+            isEditingMode = true;
+            
+            // UI 變更
+            iconMore.classList.add('hidden');
+            textDone.classList.remove('hidden');
+            navLeftText.innerText = "重置"; // 左上角變重置按鈕
+            
+            renderList();
+        }
+
+        function exitEditMode() {
+            saveItems(); // 儲存
+            isEditingMode = false;
+            
+            // UI 恢復
+            iconMore.classList.remove('hidden');
+            textDone.classList.add('hidden');
+            navLeftText.innerText = "備忘錄";
+            
+            renderList();
+        }
+
+        function handleActionClick() {
+            if (isEditingMode) {
+                // 如果是編輯模式，按鈕功能為 "完成"
+                exitEditMode();
+            } else {
+                // 如果是魔術模式，按鈕功能為 "開始魔術"
+                startRoutine();
+            }
+        }
+
+        function handleLeftNavClick() {
+            if (isEditingMode) {
+                // 編輯模式下：重置為預設值
+                resetToDefaults();
+            } else {
+                // 魔術模式下：重置魔術
+                resetMagic();
+            }
+        }
+
+        // --- 列表渲染 ---
+        function renderList(indices = null) {
+            let html = '';
+            
+            if (isEditingMode) {
+                // 編輯模式：顯示所有 30 個 Input
+                for (let i = 1; i <= 30; i++) {
+                    html += `
+                        <div class="py-1">
+                            <input type="text" class="edit-input" value="${currentItems[i]}" placeholder="項目 ${i}">
+                        </div>
+                    `;
+                }
+            } else {
+                // 魔術模式：顯示唯讀列表
+                const listIndices = indices || Array.from({length: 30}, (_, i) => i + 1); // 預設顯示全部
+                
+                listIndices.forEach((index) => {
+                    const itemName = currentItems[index];
+                    html += `
+                        <div class="flex items-start py-3 cursor-pointer group" onclick="toggleCheckbox(this)">
+                            <div class="flex items-center h-[22px] mr-3.5">
+                                <input type="checkbox" class="note-checkbox pointer-events-none">
+                            </div>
+                            <span class="text-[17px] leading-[22px] transition-colors" style="color: var(--text-primary);">${itemName}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            itemListEl.innerHTML = html;
+            
+            if (!isEditingMode) {
+                itemListEl.classList.remove('fade-in');
+                void itemListEl.offsetWidth; 
+                itemListEl.classList.add('fade-in');
+                document.getElementById('list-container').scrollTop = 0;
+            }
+        }
+
+        // --- 魔術核心邏輯 ---
+        function getAllItemsIndices() { return Array.from({length: 30}, (_, i) => i + 1); }
+
+        function getItemsForBit(bitPosition) {
+            const indices = [];
+            for (let i = 1; i <= 30; i++) {
+                if ((i >> bitPosition) & 1) indices.push(i);
+            }
+            return shuffleArray(indices);
+        }
+
+        function toggleCheckbox(div) {
+            const checkbox = div.querySelector('input[type="checkbox"]');
+            const textSpan = div.querySelector('span');
+            checkbox.checked = !checkbox.checked;
+            if(checkbox.checked) {
+                textSpan.classList.add('item-text-checked');
+            } else {
+                textSpan.classList.remove('item-text-checked');
+            }
+        }
+
+        // --- 魔術流程 (滑動版) ---
+        function startRoutine() {
+            if (currentPhase !== 0 || isEditingMode) return;
+            currentPhase = 1;
+            magicNumber = 0;
+            
+            peekLineEl.classList.remove('opacity-100');
+            peekLineEl.classList.add('opacity-0');
+            
+            renderList(getItemsForBit(0));
+        }
+
+        // --- 滑動偵測邏輯 ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        document.addEventListener('touchstart', e => {
+            if (currentPhase < 1 || currentPhase > 5) return;
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: false});
+
+        document.addEventListener('touchend', e => {
+            if (currentPhase < 1 || currentPhase > 5) return;
+
+            const touchEndX = e.changedTouches[0].screenX;
+            const touchEndY = e.changedTouches[0].screenY;
+            
+            const diffX = touchEndX - touchStartX;
+            const diffY = touchEndY - touchStartY;
+
+            // 判斷是否為「向左滑動」
+            if (Math.abs(diffX) > Math.abs(diffY) && diffX < -40) {
+                if (navigator.vibrate) navigator.vibrate(5);
+                const screenHeight = window.innerHeight;
+                
+                if (touchStartY < screenHeight / 2) {
+                    handleInput(1); // 上半部 YES
+                } else {
+                    handleInput(0); // 下半部 NO
+                }
+            }
+        }, {passive: false});
+
+
+        function handleInput(choice) {
+            if (choice === 1) magicNumber += (1 << (currentPhase - 1));
+            
+            currentPhase++;
+            
+            if (currentPhase <= totalBits) {
+                setTimeout(() => { renderList(getItemsForBit(currentPhase - 1)); }, 100);
+            } else {
+                finishRoutine();
+            }
+        }
+
+        function finishRoutine() {
+            currentPhase = 6;
+            
+            // 1. 取得所有項目的索引
+            let indices = getAllItemsIndices();
+
+            if (magicNumber > 0 && magicNumber <= 30) {
+                // 2. 執行位置互換 (Swap)
+                // 目標：列表的第 5 個位置 (Array Index 4)
+                const targetPos = 4;
+                // 來源：觀眾選的物品索引 (Array Index = Value - 1)
+                const sourcePos = magicNumber - 1;
+
+                // 執行交換
+                [indices[targetPos], indices[sourcePos]] = [indices[sourcePos], indices[targetPos]];
+
+                // 底部的 Peek 恢復預設 (不顯示答案)
+                peekTextEl.innerText = "輸入...";
+                peekLineEl.classList.remove('opacity-0');
+                peekLineEl.classList.add('opacity-100'); // 讓它淡入顯示 "輸入..." 增加真實感
+            } else {
+                peekTextEl.innerText = "輸入...";
+            }
+            
+            // 3. 渲染交換後的列表
+            renderList(indices);
+        }
+
+        // --- 手動觸發複製功能 ---
+        function handleComposeClick() {
+            if (currentPhase === 6 && magicNumber > 0 && magicNumber <= 30) {
+                const revealedItem = currentItems[magicNumber];
+                
+                // 視覺回饋
+                composeBtn.classList.add('icon-clicked');
+                setTimeout(() => composeBtn.classList.remove('icon-clicked'), 100);
+                
+                if (navigator.vibrate) navigator.vibrate(10);
+                performSilentCopy(revealedItem);
+            }
+        }
+
+        function resetMagic() {
+            if (isEditingMode) return;
+            currentPhase = 0;
+            magicNumber = 0;
+            
+            peekLineEl.classList.remove('opacity-100');
+            peekLineEl.classList.add('opacity-0');
+            peekTextEl.innerText = "輸入...";
+            
+            renderList(getAllItemsIndices());
+        }
+
+        // --- 強力靜默複製 ---
+        function performSilentCopy(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).catch(err => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.contentEditable = "true";
+            textArea.readOnly = false;
+            textArea.style.position = "fixed";
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.width = "1px";
+            textArea.style.height = "1px";
+            textArea.style.opacity = "0.01"; 
+            textArea.style.border = "none";
+            textArea.style.background = "transparent";
+            textArea.style.outline = "none";
+            textArea.style.padding = "0";
+            textArea.style.margin = "0";
+            
+            document.body.appendChild(textArea);
+            
+            textArea.focus();
+            textArea.select();
+            
+            const range = document.createRange();
+            range.selectNodeContents(textArea);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            textArea.setSelectionRange(0, 999999);
+            
+            try {
+                document.execCommand('copy');
+            } catch (err) { }
+            
+            document.body.removeChild(textArea);
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+# macOS / editor
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+backend/.venv/
+backend/.pytest_cache/
+backend/.ruff_cache/
+backend/**/__pycache__/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Terraform
+infra/.terraform/
+infra/.terraform.lock.hcl.backup
+infra/build/
+infra/*.tfvars
+infra/*.tfvars.json
+!infra/terraform.tfvars.example
+infra/*.tfstate
+infra/*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# AWS / deployment artifacts
+*.pem
+*.key
+*.zip
+
+# Agent/runtime local state
+.omx/
+.superpowers/
+.gemini/
+.codex/
+
+# Generated temporary content
+.superpowers/brainstorm/*/content/*.html

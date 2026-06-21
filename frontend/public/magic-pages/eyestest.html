@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>標準對數視力表</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            touch-action: manipulation;
+            background-color: #ffffff;
+        }
+        /* 視力表專用字體：厚重、方正、無襯線 */
+        .chart-font {
+            font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
+            font-weight: 900;
+        }
+        /* 極致炫彩樣式 */
+        .rainbow-target {
+            background-image: linear-gradient(to right, #ff0000, #ff9900, #33cc33, #3399ff, #9900cc);
+            -webkit-background-clip: text;
+            color: transparent !important;
+            text-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+        }
+        .rainbow-chart {
+            background-image: linear-gradient(to bottom right, #ff0080, #ff8c00, #40e0d0, #ba55d3);
+            -webkit-background-clip: text;
+            color: transparent !important;
+        }
+        .rainbow-header {
+            background-image: linear-gradient(to right, #ff0080, #ba55d3);
+            -webkit-background-clip: text;
+            color: transparent !important;
+        }
+        .rainbow-line {
+            background: linear-gradient(to right, #ff0080, #ba55d3) !important;
+        }
+
+        /* 編輯模式動畫 */
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.7); }
+            70% { box-shadow: 0 0 0 4px rgba(234, 179, 8, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+        }
+        .editing-mode {
+            animation: pulse-border 1.5s infinite;
+            border-color: #eab308 !important;
+            background-color: #fef08a !important;
+            color: #854d0e !important;
+        }
+
+        #main-title:active { opacity: 0.6; }
+        
+        #save-indicator {
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+            padding: 4px 12px; background: rgba(0,0,0,0.5); color: white;
+            font-size: 10px; border-radius: 99px; display: none; z-index: 100;
+        }
+    </style>
+</head>
+<body class="font-sans min-h-screen flex flex-col items-center relative" id="main-body">
+
+    <div id="save-indicator">同步中...</div>
+
+    <!-- 頂部標題容器 -->
+    <div id="header-container" class="w-full mt-8 text-center z-50 origin-top transition-all duration-300">
+        <h1 id="main-title" class="text-3xl sm:text-4xl font-black tracking-[0.3em] text-gray-900 mb-2 cursor-pointer">標準對數視力表</h1>
+        <div id="title-line" class="h-[4px] bg-gray-900 w-[90%] mx-auto mb-4"></div>
+    </div>
+
+    <!-- 視力表主體容器：根據圖片比例進行佈局 -->
+    <div id="chart-wrapper" class="w-full flex-grow flex flex-col items-center justify-start pt-10 overflow-hidden relative">
+        <div id="chart-container" class="w-full flex flex-col items-center pointer-events-none origin-top chart-font text-black">
+            <!-- 內容動態生成：1-2-3-4-5-6-7 排列 -->
+        </div>
+    </div>
+
+    <!-- 全區觸控區 -->
+    <div id="secret-zone-left" class="hidden fixed top-0 left-0 w-[30%] h-full z-40 bg-transparent"></div>
+    <div id="secret-zone-right" class="hidden fixed top-0 right-0 w-[70%] h-full z-40 bg-transparent"></div>
+
+    <!-- 配置後台 -->
+    <div id="control-panel" class="hidden fixed bottom-0 left-0 right-0 bg-white shadow-[0_-10px_40px_rgba(0,0,0,0.4)] p-6 rounded-t-[3rem] z-[60] max-w-2xl mx-auto border-t border-gray-100 max-h-[85vh] flex flex-col">
+        
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <span class="text-xl font-black text-gray-900 block">表演配置後台</span>
+                <span id="sync-status" class="text-[9px] text-gray-400 font-bold tracking-widest uppercase">Local Sync Active</span>
+            </div>
+            <button id="btn-enter-magic" class="bg-blue-600 text-white px-8 py-3 rounded-full font-black shadow-xl active:scale-95 transition-all">
+                確認順序並開始
+            </button>
+        </div>
+
+        <div class="mb-4 bg-blue-50 p-4 rounded-2xl text-[11px] text-blue-700 leading-relaxed border border-blue-100">
+            🔒 <b>長按標題 1.5 秒</b> 回到此後台。設定已自動儲存。
+        </div>
+
+        <div class="mb-6 bg-gray-50 p-4 rounded-2xl border border-gray-200">
+            <div class="flex justify-between items-center mb-3">
+                <span class="text-xs font-bold text-gray-600 tracking-wider">觸發流程：</span>
+                <div class="space-x-3">
+                    <button id="btn-clear-seq" class="text-[10px] text-red-500 font-bold uppercase">清空</button>
+                    <button id="btn-default-seq" class="text-[10px] text-blue-500 font-bold uppercase">預設</button>
+                </div>
+            </div>
+            <div id="sequence-display" class="flex flex-wrap gap-2 min-h-[50px] items-center overflow-y-auto max-h-40 p-1"></div>
+        </div>
+        
+        <div class="flex-grow overflow-y-auto pr-1">
+            <span id="pool-instruction" class="text-[10px] font-bold text-gray-400 mb-4 block uppercase tracking-widest">點擊加入效果：</span>
+            <div class="grid grid-cols-3 sm:grid-cols-5 gap-3" id="effect-pool">
+                <button data-effect="0" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-gray-800 shadow-sm active:bg-gray-100">向右</button>
+                <button data-effect="1" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-gray-800 shadow-sm active:bg-gray-100">轉向下</button>
+                <button data-effect="2" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-gray-800 shadow-sm active:bg-gray-100">變「上」</button>
+                <button data-effect="3" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-gray-800 shadow-sm active:bg-gray-100">輕度模糊</button>
+                <button data-effect="4" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-red-700 shadow-sm active:bg-gray-100">重度模糊</button>
+                <button data-effect="5" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-gray-800 shadow-sm active:bg-gray-100">清晰恢復</button>
+                <button data-effect="6" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-gray-800 shadow-sm active:bg-gray-100">散光重影</button>
+                <button data-effect="7" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-purple-700 shadow-sm active:bg-gray-100">歪七扭八</button>
+                <button data-effect="8" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-white border border-gray-200 text-gray-800 shadow-sm active:bg-gray-100">超級放大</button>
+                <button data-effect="9" class="pool-btn py-4 text-[11px] font-bold rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white border-none shadow-md active:opacity-80">炫彩視界</button>
+            </div>
+        </div>
+
+        <button id="btn-close-panel" class="mt-4 py-4 text-xs text-gray-400 font-black border-t border-gray-50 uppercase tracking-widest">暫時關閉</button>
+    </div>
+
+    <!-- 隱蔽退出 -->
+    <div id="exit-magic-container" class="hidden fixed top-2 right-2 z-50">
+        <button id="btn-exit-magic" class="w-10 h-10 opacity-0">EXIT</button>
+    </div>
+
+    <script type="module">
+        let db = null; let userId = null; let appId = 'magic-eye-app';
+        const syncStatus = document.getElementById('sync-status');
+        const saveIndicator = document.getElementById('save-indicator');
+
+        // Firebase 邏輯 (相容 GitHub)
+        async function setupFirebase() {
+            try {
+                if (typeof __firebase_config === 'undefined') return;
+                const { initializeApp } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js");
+                const { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js");
+                const { getFirestore } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const firebaseConfig = JSON.parse(__firebase_config);
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app); db = getFirestore(app);
+                appId = typeof __app_id !== 'undefined' ? __app_id : 'magic-eye-app';
+                onAuthStateChanged(auth, (user) => {
+                    if (user) { userId = user.uid; syncStatus.innerText = "Persistence Active"; syncStatus.classList.replace('text-gray-400', 'text-green-500'); loadConfigFromCloud(userId); }
+                });
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                else await signInAnonymously(auth);
+            } catch (e) { console.warn("Firebase skipped"); }
+        }
+
+        async function saveConfig() {
+            localStorage.setItem('magic_eye_seq_final', JSON.stringify(customSequence));
+            if (db && userId) {
+                saveIndicator.style.display = 'block';
+                try {
+                    const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                    await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'config', 'sequence'), { data: customSequence, updatedAt: Date.now() });
+                } catch (err) { console.error(err); } finally { setTimeout(() => { saveIndicator.style.display = 'none'; }, 500); }
+            }
+        }
+
+        async function loadConfigFromCloud(uid) {
+            try {
+                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const snap = await getDoc(doc(db, 'artifacts', appId, 'users', uid, 'config', 'sequence'));
+                if (snap.exists()) { customSequence = snap.data().data; updateVisuals(); }
+            } catch (e) {}
+        }
+
+        function loadLocalConfig() {
+            const localData = localStorage.getItem('magic_eye_seq_final');
+            if (localData) { customSequence = JSON.parse(localData); updateVisuals(); }
+        }
+
+        // --- 視力表邏輯 (視覺復刻核心) ---
+        const rotationMap = { up: '-rotate-90', down: 'rotate-90', left: 'rotate-180', right: 'rotate-0' };
+        
+        // 根據圖片進行比例調整：第1排超大，後續快速縮小
+        const chartData = [
+            { size: 'text-[55vmin]', gap: 'gap-0', items: ['right'] },                       // 第1排: 1字 (極巨化)
+            { size: 'text-[25vmin]', gap: 'gap-[10vmin]', items: ['up', 'down'] },           // 第2排: 2字
+            { size: 'text-[16vmin]', gap: 'gap-[6vmin]', items: ['left', 'up', 'right'] },   // 第3排: 3字
+            { size: 'text-[11vmin]', gap: 'gap-[4.5vmin]', items: ['down', 'left', 'up', 'right'] }, // 第4排
+            { size: 'text-[8.5vmin]', gap: 'gap-[3.5vmin]', items: ['right', 'down', 'left', 'up', 'down'] }, // 第5排
+            { size: 'text-[6.5vmin]', gap: 'gap-[2.5vmin]', items: ['up', 'right', 'down', 'left', 'up', 'right'] }, // 第6排
+            { size: 'text-[4.5vmin]', gap: 'gap-[2vmin]', items: ['left', 'up', 'right', 'down', 'left', 'up', 'right'] }, // 第7排
+        ];
+
+        const effectNames = ["向右", "轉向下", "變「上」", "輕度模糊", "重度模糊", "清晰恢復", "散光重影", "歪七扭八", "超級放大", "炫彩視界"];
+        let customSequence = [0, 1, 2, 3, 5, 6, 8, 9]; 
+        let currentStepIndex = 0; let editingIndex = -1; let magicMode = false;
+
+        const headerContainer = document.getElementById('header-container');
+        const mainTitle = document.getElementById('main-title');
+        const titleLine = document.getElementById('title-line');
+        const chartContainer = document.getElementById('chart-container');
+        const controlPanel = document.getElementById('control-panel');
+        const sequenceDisplay = document.getElementById('sequence-display');
+        const poolInstruction = document.getElementById('pool-instruction');
+
+        // 長按標題邏輯
+        let longPressTimer;
+        const triggerBackstage = () => { controlPanel.classList.remove('hidden'); magicMode = false; updateVisuals(); };
+        mainTitle.addEventListener('mousedown', () => { longPressTimer = setTimeout(triggerBackstage, 1500); });
+        mainTitle.addEventListener('touchstart', (e) => { longPressTimer = setTimeout(triggerBackstage, 1500); }, { passive: true });
+        const cancelLongPress = () => clearTimeout(longPressTimer);
+        window.addEventListener('mouseup', cancelLongPress); window.addEventListener('touchend', cancelLongPress);
+
+        function renderChart() {
+            chartContainer.innerHTML = ''; 
+            chartData.forEach((row, rowIndex) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = `flex justify-center items-center ${row.gap} my-[1.5vmin]`;
+                row.items.forEach((dir, colIndex) => {
+                    const charDiv = document.createElement('div');
+                    charDiv.className = `flex justify-center items-center w-[1.1em] h-[1.1em] leading-none font-black ${row.size}`;
+                    const spanEl = document.createElement('span');
+                    spanEl.innerText = 'E';
+                    spanEl.className = `inline-block ${rotationMap[dir]}`;
+                    spanEl.setAttribute('data-dir', dir);
+                    if (rowIndex === 0 && colIndex === 0) spanEl.id = 'target-e';
+                    else spanEl.classList.add('other-e'); 
+                    charDiv.appendChild(spanEl);
+                    rowDiv.appendChild(charDiv);
+                });
+                chartContainer.appendChild(rowDiv);
+            });
+        }
+
+        function renderSequenceUI() {
+            sequenceDisplay.innerHTML = '';
+            if (editingIndex > -1) {
+                poolInstruction.innerText = `🔄 請替換第 ${editingIndex + 1} 步的效果：`;
+                poolInstruction.className = "text-[10px] font-bold text-yellow-600 mb-4 block bg-yellow-50 px-3 py-1.5 rounded-full";
+            } else {
+                poolInstruction.innerText = "點擊下方按鈕加入流程：";
+                poolInstruction.className = "text-[10px] font-bold text-gray-400 mb-4 block tracking-widest uppercase";
+            }
+            customSequence.forEach((effId, idx) => {
+                const span = document.createElement('span');
+                const isCurrent = idx === currentStepIndex;
+                const isEditing = idx === editingIndex;
+                let baseClass = "pl-3 pr-2 py-2 rounded-2xl text-[11px] font-black flex items-center border transition-all ";
+                if (isEditing) span.className = baseClass + "editing-mode bg-yellow-50 border-yellow-400 text-yellow-900";
+                else if (isCurrent) span.className = baseClass + "bg-blue-600 text-white border-blue-700 shadow-lg scale-105";
+                else span.className = baseClass + "bg-white text-gray-800 border-gray-200 shadow-sm";
+                
+                const textNode = document.createElement('span');
+                textNode.innerHTML = `<span class="opacity-30 mr-1.5">${idx+1}.</span>${effectNames[effId]}`;
+                textNode.className = "cursor-pointer";
+                textNode.onclick = () => { currentStepIndex = idx; editingIndex = (editingIndex === idx) ? -1 : idx; updateVisuals(); };
+                span.appendChild(textNode);
+
+                const delBtn = document.createElement('button');
+                delBtn.innerHTML = '&times;';
+                delBtn.className = "ml-2 w-5 h-5 rounded-full flex items-center justify-center " + (isCurrent ? "bg-white/20 text-white" : "bg-gray-100 text-gray-400");
+                delBtn.onclick = (e) => {
+                    e.stopPropagation(); customSequence.splice(idx, 1); 
+                    if (editingIndex === idx) editingIndex = -1; else if (editingIndex > idx) editingIndex--;
+                    if (currentStepIndex >= customSequence.length) currentStepIndex = Math.max(0, customSequence.length - 1);
+                    updateVisuals(); saveConfig(); 
+                };
+                span.appendChild(delBtn);
+                sequenceDisplay.appendChild(span);
+            });
+        }
+
+        function updateVisuals() {
+            const currentEffectId = (customSequence.length > 0) ? customSequence[currentStepIndex] : 0;
+            const targetE = document.getElementById('target-e');
+            const otherEs = document.querySelectorAll('.other-e');
+            
+            // 絕對重置
+            headerContainer.className = "w-full mt-8 text-center z-50 origin-top transition-all duration-300";
+            mainTitle.className = "text-3xl sm:text-4xl font-black tracking-[0.3em] text-gray-900 mb-2 cursor-pointer transition-all duration-300";
+            titleLine.className = "h-[4px] bg-gray-900 w-[90%] mx-auto mb-4 transition-all duration-300";
+            chartContainer.className = "w-full flex flex-col items-center pointer-events-none origin-top chart-font text-black transition-all duration-300";
+            
+            let targetText = "E";
+            let targetEClass = "inline-block font-black "; 
+            if(targetE) { targetE.style.transform = ''; targetE.style.opacity = '1'; targetE.style.filter = 'none'; targetE.style.color = ''; }
+
+            otherEs.forEach(el => {
+                const originalDir = el.getAttribute('data-dir');
+                el.className = `other-e inline-block ${rotationMap[originalDir]} text-black`;
+                el.style.transform = ''; el.style.opacity = '1'; el.style.filter = 'none'; el.innerText = 'E'; el.style.color = '';
+            });
+
+            // 特效分流
+            if (currentEffectId === 0) targetEClass += rotationMap['right'];
+            else if (currentEffectId === 1) targetEClass += rotationMap['down']; 
+            else if (currentEffectId === 2) { targetText = "上"; targetEClass += rotationMap['right']; } 
+            else if (currentEffectId === 3) { targetEClass += rotationMap['right']; chartContainer.classList.add('blur-[5px]', 'opacity-80'); } 
+            else if (currentEffectId === 4) { targetEClass += rotationMap['right']; chartContainer.classList.add('blur-[15px]', 'opacity-60'); }
+            else if (currentEffectId === 5) targetEClass += rotationMap['right']; 
+            else if (currentEffectId === 6) { targetEClass += rotationMap['right']; chartContainer.classList.add('drop-shadow-[10px_6px_3px_rgba(0,0,0,0.4)]', '-skew-x-6', 'scale-105'); } 
+            else if (currentEffectId === 7) { 
+                targetEClass += rotationMap['right']; 
+                otherEs.forEach(el => { 
+                    const r = (Math.random() - 0.5) * 260; const tx = (Math.random() - 0.5) * 100; const ty = (Math.random() - 0.5) * 100;
+                    const skX = (Math.random() - 0.5) * 120; const skY = (Math.random() - 0.5) * 120; const s = Math.random() * 0.9 + 0.3; 
+                    el.style.transform = `translate(${tx}px, ${ty}px) rotate(${r}deg) skew(${skX}deg, ${skY}deg) scale(${s})`;
+                    el.style.opacity = Math.random() * 0.7 + 0.3;
+                });
+                targetE.style.transform = `rotate(${(Math.random() - 0.5) * 60}deg) skew(${(Math.random() - 0.5) * 30}deg) scale(0.75)`;
+            } 
+            else if (currentEffectId === 8) { 
+                targetEClass += rotationMap['right']; 
+                chartContainer.classList.add('scale-[2.5]'); headerContainer.classList.add('scale-[1.5]'); 
+            } 
+            else if (currentEffectId === 9) {
+                targetEClass += rotationMap['right']; targetEClass += ' rainbow-target'; 
+                mainTitle.classList.add('rainbow-header'); titleLine.classList.add('rainbow-line');
+                otherEs.forEach(el => { el.classList.add('rainbow-chart'); });
+            }
+            if(targetE) { targetE.className = targetEClass; targetE.innerText = targetText; }
+            renderSequenceUI(); 
+        }
+
+        // 事件綁定
+        document.querySelectorAll('.pool-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const effId = parseInt(e.currentTarget.getAttribute('data-effect'));
+                if (editingIndex > -1) { customSequence[editingIndex] = effId; editingIndex = -1; } 
+                else { customSequence.push(effId); currentStepIndex = customSequence.length - 1; }
+                updateVisuals(); saveConfig(); 
+            });
+        });
+
+        document.getElementById('btn-clear-seq').addEventListener('click', () => { customSequence = []; currentStepIndex = 0; updateVisuals(); saveConfig(); });
+        document.getElementById('btn-default-seq').addEventListener('click', () => { customSequence = [0, 1, 2, 3, 5, 6, 8, 9]; currentStepIndex = 0; updateVisuals(); saveConfig(); });
+        document.getElementById('btn-close-panel').addEventListener('click', () => controlPanel.classList.add('hidden'));
+
+        document.getElementById('btn-enter-magic').addEventListener('click', () => {
+            if (customSequence.length === 0) return;
+            magicMode = true; currentStepIndex = 0; editingIndex = -1; updateVisuals();
+            controlPanel.classList.add('hidden');
+            document.getElementById('secret-zone-right').classList.remove('hidden'); 
+            document.getElementById('secret-zone-left').classList.remove('hidden');
+        });
+
+        const zoneRight = document.getElementById('secret-zone-right');
+        const zoneLeft = document.getElementById('secret-zone-left');
+        const nextStep = () => { if (customSequence.length === 0) return; currentStepIndex = (currentStepIndex + 1) % customSequence.length; updateVisuals(); };
+        const prevStep = () => { if (customSequence.length === 0) return; currentStepIndex = (currentStepIndex - 1 + customSequence.length) % customSequence.length; updateVisuals(); };
+        zoneRight.addEventListener('touchstart', (e) => { e.preventDefault(); if(magicMode) nextStep(); });
+        zoneRight.addEventListener('mousedown', () => { if(magicMode) nextStep(); });
+        zoneLeft.addEventListener('touchstart', (e) => { e.preventDefault(); if(magicMode) prevStep(); });
+        zoneLeft.addEventListener('mousedown', () => { if(magicMode) prevStep(); });
+
+        renderChart(); updateVisuals(); loadLocalConfig(); setupFirebase();
+    </script>
+</body>
+</html>

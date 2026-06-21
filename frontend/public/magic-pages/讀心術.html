@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Magic Card</title>
+    <style>
+        :root {
+            --card-sprite: none; 
+            --card-back-img: none;
+            
+            /* --- 核心尺寸控制 (直向模式) --- */
+            --active-w: 75vw;
+            --active-h: 112.5vw;
+            --max-w: 340px;
+            --max-h: 510px;
+
+            /* 微調參數 */
+            --bg-size-x: 1300%;
+            --bg-size-y: 400%;
+            --bg-off-x: 0px;
+            --bg-off-y: 0px;
+        }
+
+        /* --- 橫向模式適配 (Landscape) --- */
+        @media (orientation: landscape) {
+            :root {
+                /* 大牌維持原樣：高度 85% */
+                --active-h: 85vh; 
+                --active-w: 56.6vh; 
+                
+                --max-w: none;
+                --max-h: none;
+            }
+        }
+
+        body {
+            background-color: #111; 
+            color: white;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            height: 100dvh; 
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            perspective: 1000px;
+            touch-action: none; 
+        }
+
+        /* --- UI 元素 --- */
+        #help-btn {
+            position: absolute; top: 20px; right: 20px; width: 44px; height: 44px;
+            opacity: 0.01; background: white; border-radius: 50%; cursor: pointer; z-index: 9999;
+        }
+
+        /* --- 區間透視層 --- */
+        #zone-overlay {
+            display: none;
+            position: absolute;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%);
+            width: var(--active-w);
+            height: var(--active-h);
+            max-width: var(--max-w);
+            max-height: var(--max-h);
+            z-index: 1500;
+            pointer-events: none;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+        }
+        #zone-overlay.visible { display: flex; }
+
+        .zone-col {
+            flex: 1; height: 100%; border-right: 1px dashed rgba(255,255,255,0.2);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0,20,40,0.7); color: rgba(255,255,255,0.9); font-size: 14px;
+        }
+        .zone-col:last-child { border-right: none; }
+        .zone-title { font-size: 10px; color: #888; margin-bottom: 5px; }
+        .zone-card { font-size: 20px; font-weight: bold; }
+        .red-text { color: #ff6b6b; }
+
+        /* --- 設定選單 --- */
+        #help-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 5000; flex-direction: column; align-items: center;
+            padding: 40px 20px; box-sizing: border-box; text-align: left; overflow-y: auto; backdrop-filter: blur(5px);
+        }
+        #help-modal h3 { color: #a29bfe; margin: 15px 0 10px 0; border-bottom: 1px solid #333; padding-bottom: 8px; width: 100%; font-size: 18px; }
+        .mode-switch-group { display: flex; gap: 10px; width: 100%; margin-bottom: 20px; }
+        .mode-option { flex: 1; padding: 15px; background: #222; border: 2px solid #333; border-radius: 8px; color: #777; text-align: center; cursor: pointer; }
+        .mode-option.active { background: #2d2d2d; border-color: #6c5ce7; color: #fff; }
+        .upload-section { margin-bottom: 20px; text-align: center; border: 1px dashed #444; padding: 15px; border-radius: 8px; width: 100%; box-sizing: border-box; }
+        .settings-box { width: 100%; background: #1a1a1a; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-sizing: border-box; }
+        .card-setting-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 16px; }
+        .card-setting-row select { background: #333; color: white; border: 1px solid #555; padding: 5px; }
+        .settings-btns { display: flex; gap: 10px; margin-top: 15px; width: 100%; }
+        .setting-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-save { background: #6c5ce7; color: white; }
+        .btn-reset { background: #444; color: #ccc; }
+        .close-help { padding: 12px; background: transparent; color: #888; border: 1px solid #444; border-radius: 50px; margin-top: 20px; width: 100%; font-size: 16px; }
+        .btn-upload { border: 1px solid #666; color: white; background-color: #333; padding: 8px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+
+        /* --- 遊戲區域 --- */
+        .game-area {
+            width: 100%; height: 100%; position: relative;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        .card-container {
+            position: relative; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* --- 卡片結構 --- */
+        .card-wrapper {
+            position: absolute;
+            left: 50%; top: 50%;
+            /* 直向預設：18vw */
+            width: 18vw; height: 27vw; 
+            margin-left: -9vw; margin-top: -13.5vw;
+            
+            transform-style: preserve-3d;
+            cursor: pointer;
+            z-index: 10;
+            
+            transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), 
+                        width 0.6s ease, 
+                        height 0.6s ease, 
+                        margin 0.6s ease,
+                        opacity 0.5s ease;
+        }
+
+        /* 橫向模式小牌 (針對手機優化：加大) */
+        @media (orientation: landscape) {
+            .card-wrapper {
+                /* 高度設為 55vh (螢幕一半多)，寬度按比例 2:3 */
+                height: 55vh; width: 36.6vh; 
+                margin-top: -27.5vh; margin-left: -18.3vh;
+            }
+        }
+
+        /* 電腦版/大平板固定上限 */
+        @media (min-width: 800px) and (min-height: 800px) {
+            .card-wrapper {
+                width: 140px; height: 210px;
+                margin-left: -70px; margin-top: -105px;
+            }
+        }
+
+        /* 放大狀態 (Active / 大牌) */
+        .card-wrapper.active {
+            z-index: 1000 !important;
+            width: var(--active-w);
+            height: var(--active-h);
+            max-width: var(--max-w);
+            max-height: var(--max-h);
+            margin: 0 !important;
+            left: 50%; top: 50%;
+            transform: translate(-50%, -50%) !important; 
+            opacity: 1 !important; 
+        }
+
+        .fade-out {
+            opacity: 0 !important;
+            pointer-events: none;
+            transition: opacity 0.5s ease !important;
+        }
+
+        /* --- 卡片內部 --- */
+        .card-inner {
+            position: relative; width: 100%; height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.6s ease-out;
+        }
+
+        .card-face {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
+            background-color: white;
+        }
+        
+        .card-wrapper.active .card-face {
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+        }
+
+        /* 牌背 */
+        .card-back {
+            background-color: #8a0a0a;
+            background-image: var(--card-back-img);
+            background-size: cover; background-position: center;
+            border: 3px solid white; outline: 1px solid #999;
+            transform: rotateY(0deg);
+        }
+        body:not(.has-custom-back) .card-back {
+             background: radial-gradient(circle at 50% 50%, transparent 20%, #8a0a0a 21%, #8a0a0a 30%, transparent 31%),
+                         repeating-linear-gradient(45deg, #700 0, #700 2px, #8a0a0a 2px, #8a0a0a 4px);
+             background-color: #8a0a0a;
+        }
+        .card-wrapper.active .card-back { border-width: 6px; }
+
+        /* 牌面 */
+        .card-front {
+            background-color: white;
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            transform: rotateY(180deg);
+        }
+
+        /* --- 揭曉大牌層 --- */
+        #reveal-container {
+            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            pointer-events: none; 
+        }
+
+        .big-card-wrapper {
+            width: var(--active-w);
+            height: var(--active-h);
+            max-width: var(--max-w);
+            max-height: var(--max-h);
+            perspective: 1500px;
+            pointer-events: auto; 
+        }
+
+        .big-card-inner {
+            position: relative; width: 100%; height: 100%;
+            transition: transform 0.8s ease-in-out;
+            transform-style: preserve-3d;
+        }
+
+        .big-card-front, .big-card-back {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+        }
+
+        .big-card-back {
+            background-color: #8a0a0a;
+            background-image: var(--card-back-img);
+            background-size: cover;
+            background-position: center;
+            border: 6px solid white;
+            display: flex; justify-content: center; align-items: center;
+        }
+        
+        body:not(.has-custom-back) .big-card-back {
+             background: radial-gradient(circle at 50% 50%, transparent 20%, #8a0a0a 21%, #8a0a0a 30%, transparent 31%),
+                         repeating-linear-gradient(45deg, #700 0, #700 2px, #8a0a0a 2px, #8a0a0a 4px);
+             background-color: #8a0a0a;
+        }
+
+        .big-card-front {
+            background-color: white;
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            transform: rotateY(180deg);
+        }
+        
+        .big-card-wrapper.flipped .big-card-inner { transform: rotateY(180deg); }
+
+        /* --- 底部按鈕 --- */
+        .controls { 
+            position: absolute; bottom: 8vh; width: 100%; z-index: 3000; 
+            display: flex; justify-content: center; pointer-events: none; 
+        }
+
+        #action-btn {
+            pointer-events: auto; 
+            padding: 16px 50px; font-size: 18px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase;
+            border: none; border-radius: 50px; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            color: white; box-shadow: 0 10px 20px rgba(0,0,0,0.3); transition: all 0.2s; cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #action-btn:active { transform: scale(0.92); filter: brightness(0.9); }
+
+        .fade-out { opacity: 0 !important; pointer-events: none; transition: opacity 0.5s ease !important; }
+        #secret-hint { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); height: 4px; width: 4px; background: #333; border-radius: 50%; opacity: 0; transition: background 0.3s; pointer-events: none; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
+    </style>
+</head>
+<body>
+
+    <div id="help-btn" onclick="toggleHelp()"></div>
+    <div id="secret-hint"></div>
+
+    <div id="help-modal">
+        <h3>魔術設定</h3>
+        <div class="mode-switch-group">
+            <div class="mode-option" id="mode-touch" onclick="setMode('touch')">觸控模式</div>
+            <div class="mode-option" id="mode-sensor" onclick="setMode('sensor')">感應模式</div>
+        </div>
+        <div class="upload-section">
+            <label class="btn-upload">上傳牌背 <input type="file" style="display:none" accept="image/*" onchange="handleBackUpload(this)"></label>
+            <div id="back-upload-status" style="font-size:12px; color:#888; margin-top:5px;">預設</div>
+        </div>
+        <div class="settings-box" id="settings-container"></div>
+        <div class="settings-btns">
+            <button class="setting-btn btn-save" onclick="saveCustomCards()">儲存設定</button>
+            <button class="setting-btn btn-reset" onclick="resetDefaultCards()">重置</button>
+        </div>
+        <h3>祕技圖解</h3>
+        <p>點擊下方圖示可開啟/關閉輔助線：</p>
+        <div style="display:flex; width:100%; height:40px; margin-bottom:15px; border:1px solid #444; cursor:pointer;" id="visual-zones"></div>
+        <button class="close-help" onclick="toggleHelp()">返回</button>
+    </div>
+
+    <div class="game-area">
+        <div id="zone-overlay"></div>
+        <div class="card-container" id="cards-row"></div>
+        <div id="reveal-container"></div>
+    </div>
+
+    <div class="controls">
+        <button id="action-btn">打亂順序</button>
+    </div>
+
+    <script>
+        function safeGetItem(key, defaultVal) {
+            try { return JSON.parse(localStorage.getItem(key)) || defaultVal; } catch (e) { return defaultVal; }
+        }
+
+        const defaultCards = [
+            { suit: '♣', val: '4', color: 'black' },
+            { suit: '♥', val: '5', color: 'red' },
+            { suit: '♦', val: '6', color: 'red' },
+            { suit: '♠', val: 'J', color: 'black' },
+            { suit: '♥', val: 'Q', color: 'red' }
+        ];
+
+        let cardsData = safeGetItem('magicCards', JSON.parse(JSON.stringify(defaultCards)));
+        let currentMode = localStorage.getItem('magicMode') || 'touch'; 
+
+        let currentStage = 0; 
+        let activeCardIndex = 2; 
+        let selectedCardIndex = 2; 
+        let isDragging = false;
+        let startX = 0;
+        let currentRotation = 0;
+        
+        let shuffleInterval = null;
+        let shuffleTimeout = null;
+        let dealTimeout = null;
+
+        const cardsRow = document.getElementById('cards-row');
+        const actionBtn = document.getElementById('action-btn');
+        const hint = document.getElementById('secret-hint');
+        const zoneOverlay = document.getElementById('zone-overlay');
+        const helpModal = document.getElementById('help-modal');
+        const HINT_COLORS = ['#fff', '#f00', '#0f0', '#00f', '#ff0']; 
+
+        function initApp() {
+            try {
+                loadCardBack(); 
+                initCards();
+                updateModeUI();
+                initSettings();
+                updateZoneVisuals();
+                
+                actionBtn.onclick = handleMainButton;
+                
+                if (window.DeviceOrientationEvent) {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                }
+                
+                window.addEventListener('touchstart', handleTouchStart, {passive: false});
+                window.addEventListener('touchmove', handleTouchMove, {passive: false});
+                window.addEventListener('touchend', handleTouchEnd);
+                window.addEventListener('mousedown', handleTouchStart);
+                window.addEventListener('mousemove', handleTouchMove);
+                window.addEventListener('mouseup', handleTouchEnd);
+            } catch (e) { console.error(e); }
+        }
+
+        function initCards() {
+            cardsRow.innerHTML = '';
+            cardsData.forEach((card, index) => {
+                let wrapper = document.createElement('div');
+                wrapper.className = `card-wrapper`;
+                wrapper.id = `card-${index}`;
+                
+                let inner = document.createElement('div');
+                inner.className = 'card-inner';
+                inner.style.transform = 'rotateY(180deg)'; 
+                
+                let back = document.createElement('div');
+                back.className = 'card-face card-back';
+                
+                let front = document.createElement('div');
+                front.className = `card-face card-front`;
+                front.style.backgroundImage = `url(${getCardImageUrl(card.suit, card.val)})`;
+
+                inner.appendChild(back);
+                inner.appendChild(front);
+                wrapper.appendChild(inner);
+                
+                updateCardPosition(wrapper, index);
+                
+                const clickHandler = (e) => { if (currentStage === 1) handleCardSelect(index, e); };
+                wrapper.addEventListener('click', clickHandler);
+                wrapper.addEventListener('touchstart', (e) => {
+                    if (currentStage === 1) { e.preventDefault(); handleCardSelect(index, e); }
+                });
+
+                cardsRow.appendChild(wrapper);
+            });
+        }
+        
+        function updateCardPosition(el, index) {
+            let offset = (index - 2) * 19; // 直向間距
+            let unit = 'vw';
+            if (window.innerWidth > window.innerHeight) {
+                // 橫向模式：卡片間距 (約 32vh)
+                offset = (index - 2) * 32; 
+                unit = 'vh';
+            }
+            const transform = `translateX(${offset}${unit})`;
+            el.style.transform = transform;
+            el.dataset.baseTransform = transform;
+        }
+        
+        window.addEventListener('resize', () => {
+            if (currentStage === 0 || currentStage === 1) {
+                const wrappers = document.querySelectorAll('.card-wrapper');
+                wrappers.forEach((w, i) => updateCardPosition(w, i));
+            }
+        });
+
+        function handleMainButton(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            if (currentStage === 3) resetTable();
+            else performShuffle(); 
+        }
+
+        function resetTable() {
+            currentStage = 0;
+            isDragging = false;
+            currentRotation = 0;
+            hint.style.opacity = 0;
+            initCards(); 
+            actionBtn.innerText = "打亂順序";
+            actionBtn.style.opacity = 1;
+            actionBtn.style.pointerEvents = 'auto';
+            document.getElementById('reveal-container').style.display = 'none';
+            document.getElementById('cards-row').style.opacity = 1;
+        }
+
+        function performShuffle() {
+            if (shuffleInterval) clearInterval(shuffleInterval);
+            if (shuffleTimeout) clearTimeout(shuffleTimeout);
+            if (dealTimeout) clearTimeout(dealTimeout);
+
+            currentStage = 0.5;
+            
+            const wrappers = document.querySelectorAll('.card-wrapper');
+            const inners = document.querySelectorAll('.card-inner');
+            
+            inners.forEach(i => i.style.transform = 'rotateY(0deg)');
+            
+            wrappers.forEach(w => {
+                w.classList.remove('active', 'fade-out');
+                w.style.opacity = 1;
+                w.style.pointerEvents = 'auto';
+                w.style.transition = 'transform 0.2s ease-out';
+                w.style.transform = `translateX(0)`;
+            });
+
+            let count = 0;
+            let maxCount = 15;
+            
+            shuffleTimeout = setTimeout(() => {
+                shuffleInterval = setInterval(() => {
+                    count++;
+                    wrappers.forEach(w => {
+                        w.style.zIndex = Math.floor(Math.random() * 50);
+                        const isLandscape = window.innerWidth > window.innerHeight;
+                        const unit = isLandscape ? 'vh' : 'px';
+                        const scale = isLandscape ? 5 : 10; 
+                        
+                        const rx = Math.random() * scale - (scale/2); 
+                        const ry = Math.random() * scale - (scale/2); 
+                        const rr = Math.random() * 10 - 5; 
+                        w.style.transition = 'transform 0.1s linear';
+                        w.style.transform = `translate(${rx}${unit}, ${ry}${unit}) rotate(${rr}deg)`;
+                    });
+
+                    if (count > maxCount) {
+                        clearInterval(shuffleInterval);
+                        dealCardsBack();
+                    }
+                }, 60);
+            }, 400);
+        }
+
+        function dealCardsBack() {
+            const wrappers = document.querySelectorAll('.card-wrapper');
+            wrappers.forEach((w, index) => {
+                w.style.zIndex = index + 10;
+                w.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                w.style.transform = w.dataset.baseTransform;
+            });
+            dealTimeout = setTimeout(() => { currentStage = 1; }, 500);
+        }
+
+        function handleCardSelect(index, e) {
+            activeCardIndex = index;
+            if(navigator.vibrate) navigator.vibrate(20);
+            
+            currentStage = 2;
+            actionBtn.style.opacity = '0';
+            actionBtn.style.pointerEvents = 'none';
+
+            if (currentMode === 'sensor') hint.style.opacity = 1;
+
+            const wrappers = document.querySelectorAll('.card-wrapper');
+            wrappers.forEach((w, i) => {
+                if (i === index) {
+                    w.classList.add('active');
+                    w.style.transition = 'transform 1.5s cubic-bezier(0.19, 1, 0.22, 1), width 1.5s ease, height 1.5s ease, margin 1.5s ease';
+                } else {
+                    w.style.transition = 'opacity 0.5s ease';
+                    w.classList.add('fade-out');
+                    w.style.opacity = 0; 
+                }
+            });
+        }
+
+        function handleTouchStart(e) {
+            if (currentStage !== 2) return;
+            if (e.target.closest('#help-btn') || e.target.closest('#help-modal')) return;
+            
+            isDragging = true;
+            startX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+            currentRotation = 0;
+            determineResult(startX);
+            applySecretCard();
+        }
+
+        function handleTouchMove(e) {
+            if (!isDragging || currentStage !== 2) return;
+            e.preventDefault(); 
+            const currentX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+            const deltaX = currentX - startX;
+            const screenW = window.innerWidth;
+            let rotation = (deltaX / (screenW * 0.4)) * 180;
+            if (rotation < 0) rotation = 0; 
+            if (rotation > 179) rotation = 179;
+            currentRotation = rotation;
+            const activeCard = document.getElementById(`card-${activeCardIndex}`);
+            if(activeCard) {
+                const inner = activeCard.querySelector('.card-inner');
+                inner.style.transition = 'none';
+                inner.style.transform = `rotateY(${currentRotation}deg)`;
+            }
+        }
+
+        function handleTouchEnd(e) {
+            if (!isDragging || currentStage !== 2) return;
+            isDragging = false;
+            const activeCard = document.getElementById(`card-${activeCardIndex}`);
+            if(!activeCard) return;
+            const inner = activeCard.querySelector('.card-inner');
+            inner.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            if (currentRotation > 60) {
+                inner.style.transform = `rotateY(180deg)`;
+                revealSuccess();
+            } else {
+                inner.style.transform = `rotateY(0deg)`;
+            }
+        }
+
+        function determineResult(touchX) {
+            if (currentMode === 'touch') {
+                const activeCard = document.getElementById(`card-${activeCardIndex}`);
+                const rect = activeCard.getBoundingClientRect();
+                const relativeX = touchX - rect.left;
+                const zoneWidth = rect.width / 5;
+                let idx = Math.floor(relativeX / zoneWidth);
+                idx = Math.max(0, Math.min(4, idx));
+                selectedCardIndex = idx;
+            }
+        }
+
+        function applySecretCard() {
+            const activeCard = document.getElementById(`card-${activeCardIndex}`);
+            const frontFace = activeCard.querySelector('.card-front');
+            const targetData = cardsData[selectedCardIndex];
+            
+            frontFace.className = `card-face card-front`;
+            frontFace.style.backgroundImage = `url(${getCardImageUrl(targetData.suit, targetData.val)})`;
+        }
+
+        function revealSuccess() {
+            currentStage = 3;
+            if(navigator.vibrate) navigator.vibrate(50);
+            
+            copyCardInfo(cardsData[selectedCardIndex]);
+            document.getElementById('zone-overlay').classList.remove('visible');
+            hint.style.opacity = 0; 
+            
+            const cardData = cardsData[selectedCardIndex];
+
+            const revealContainer = document.getElementById('reveal-container');
+            revealContainer.innerHTML = `
+                <div class="big-card-wrapper flipped" id="big-card-wrapper">
+                    <div class="big-card-inner">
+                        <div class="big-card-back"></div>
+                        <div class="big-card-front" style="background-image: url(${getCardImageUrl(cardData.suit, cardData.val)})">
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('cards-row').style.opacity = 0;
+            revealContainer.style.display = 'flex';
+            
+            setTimeout(() => {
+                actionBtn.innerText = "重新開始";
+                actionBtn.style.opacity = '1';
+                actionBtn.style.pointerEvents = 'auto';
+            }, 600);
+        }
+
+        function getCardImageUrl(suit, val) {
+            const SUIT_MAP = { '♠': 'S', '♥': 'H', '♣': 'C', '♦': 'D' };
+            const v = val === '10' ? '0' : val;
+            return `https://deckofcardsapi.com/static/img/${v}${SUIT_MAP[suit]}.png`;
+        }
+
+        function copyCardInfo(card) {
+            const suitMap = { '♠': '1', '♥': '2', '♦': '3', '♣': '4' };
+            const valMap = { 'A': '01', 'J': '11', 'Q': '12', 'K': '13' };
+            let valCode = valMap[card.val];
+            if (!valCode) valCode = parseInt(card.val) < 10 ? '0'+card.val : card.val;
+            const code = suitMap[card.suit] + valCode;
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(code).catch(()=>{});
+            } else {
+                const ta = document.createElement("textarea");
+                ta.value = code; ta.style.position="fixed"; ta.style.left="-9999px";
+                document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                document.body.removeChild(ta);
+            }
+        }
+
+        function handleOrientation(e) {
+            if (currentStage !== 2 || currentMode !== 'sensor') return;
+            const b = e.beta; if (b===null) return;
+            let idx = 2;
+            if (b < 20) idx = 0; else if (b < 35) idx = 1; else if (b < 55) idx = 2; else if (b < 75) idx = 3; else idx = 4;
+            selectedCardIndex = idx;
+            document.getElementById('secret-hint').style.backgroundColor = HINT_COLORS[idx];
+        }
+
+        function handleBackUpload(input) {
+            if (input.files && input.files[0]) {
+                const r = new FileReader();
+                r.onload = (e) => {
+                    try {
+                        localStorage.setItem('magicCardBack', e.target.result);
+                        loadCardBack();
+                        document.getElementById('back-upload-status').innerText = "✅ 已套用";
+                    } catch(e) { alert("圖片太大"); }
+                };
+                r.readAsDataURL(input.files[0]);
+            }
+        }
+        function loadCardBack() {
+            const d = localStorage.getItem('magicCardBack');
+            if (d) {
+                document.documentElement.style.setProperty('--card-back-img', `url('${d}')`);
+                document.body.classList.add('has-custom-back');
+            }
+        }
+        function toggleHelp() {
+            const m = document.getElementById('help-modal');
+            if (m.style.display==='flex') m.style.display='none';
+            else { initSettings(); updateZoneVisuals(); m.style.display='flex'; }
+        }
+        function setMode(m) {
+            currentMode = m; localStorage.setItem('magicMode', m);
+            updateModeUI();
+            if (m === 'sensor' && DeviceOrientationEvent && DeviceOrientationEvent.requestPermission) DeviceOrientationEvent.requestPermission().catch(()=>{});
+        }
+        function updateModeUI() {
+            document.getElementById('mode-touch').className=`mode-option ${currentMode==='touch'?'active':''}`;
+            document.getElementById('mode-sensor').className=`mode-option ${currentMode==='sensor'?'active':''}`;
+        }
+        document.getElementById('visual-zones').onclick = () => {
+            const z = document.getElementById('zone-overlay');
+            z.classList.toggle('visible');
+        }
+        
+        function initSettings() {
+            const c = document.getElementById('settings-container'); c.innerHTML='';
+            const s=['♠','♥','♦','♣']; const v=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+            cardsData.forEach((card,i)=>{
+                let h=`<div class="card-setting-row"><span>卡片 ${i+1}</span><select id="ss-${i}">`;
+                s.forEach(x=>h+=`<option ${x===card.suit?'selected':''}>${x}</option>`);
+                h+=`</select><select id="sv-${i}">`;
+                v.forEach(x=>h+=`<option ${x===card.val?'selected':''}>${x}</option>`);
+                h+=`</select></div>`;
+                c.innerHTML+=h;
+            });
+        }
+        function saveCustomCards() {
+            for(let i=0;i<5;i++) {
+                const s=document.getElementById(`ss-${i}`).value;
+                const v=document.getElementById(`sv-${i}`).value;
+                cardsData[i] = {suit:s, val:v, color:(s==='♥'||s==='♦'?'red':'black')};
+            }
+            localStorage.setItem('magicCards', JSON.stringify(cardsData));
+            initCards(); updateZoneVisuals(); toggleHelp();
+        }
+        function resetDefaultCards() {
+            if(confirm('重置?')) {
+                localStorage.removeItem('magicCards');
+                cardsData=JSON.parse(JSON.stringify(defaultCards));
+                initCards(); toggleHelp();
+            }
+        }
+        function updateZoneVisuals() {
+            const v = document.getElementById('visual-zones'); v.innerHTML='';
+            const z = document.getElementById('zone-overlay'); z.innerHTML='';
+            const zn=['左','中左','中','中右','右'];
+            cardsData.forEach((c,i)=>{
+                v.innerHTML+=`<div style="flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;background:${i%2?'#222':'#333'};font-size:12px;"><span style="color:#888;font-size:9px">${zn[i]}</span><strong class="${c.color==='red'?'red-text':''}">${c.val}${c.suit}</strong></div>`;
+                z.innerHTML+=`<div class="zone-col"><div class="zone-title">區間 ${i+1}</div><div class="zone-card ${c.color==='red'?'red-text':''}">${c.val}${c.suit}</div></div>`;
+            });
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
+
+
