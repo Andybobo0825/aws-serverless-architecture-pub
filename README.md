@@ -20,8 +20,6 @@
 2. **Teacher**：設定每週主題名稱、選擇教材內容、建立 URL card、決定各班可見週次。
 3. **Student**：登入後只能看到自己班級已開放的週次，教材與 URL card 以 card 呈現，點選後以新分頁載入內容。
 
-![Teacher Workflow](docs/teacher-workflow.png)
-
 ## AWS Architecture
 
 架構採用 serverless 與受管服務：
